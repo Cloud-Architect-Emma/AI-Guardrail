@@ -151,8 +151,14 @@ jobs:
           key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'app/src/**') }}
           restore-keys: |
             android-build-${{ runner.os }}-
-      - name: Grant Gradle execute permission
-        run: chmod +x gradlew
+      
+          - name: Debug repo structure
+            run: |
+           pwd
+           ls -la
+
+            - name: Grant Gradle execute permission
+            run: chmod +x gradlew
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --build-cache --parallel
