@@ -8,13 +8,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ── Job 1: Scan source text / code for guardrail violations 
+  # ── Job 1: Scan source text / code for guardrail violations ──────────────
   scan-text:
     name: AI Guardrail – Text Scan
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      models: read        # required for GitHub Models API access
+      models: read
 
     steps:
       - name: Checkout repository
@@ -33,9 +33,9 @@ jobs:
           restore-keys: ${{ runner.os }}-pip-
 
       - name: Install scanning dependencies
-        run: pip install openai      # GitHub Models uses the OpenAI-compatible SDK
+        run: pip install openai
 
-      - name: Cache scan results (skip re-scan if sources unchanged)
+      - name: Cache scan results
         id: scan-cache
         uses: actions/cache@v4
         with:
@@ -50,27 +50,32 @@ jobs:
           python - <<'EOF'
           import os, sys, pathlib
           from openai import OpenAI
+
           client = OpenAI(
               base_url="https://models.inference.ai.azure.com",
               api_key=os.environ["GITHUB_TOKEN"],
           )
+
           extensions = {".kt", ".java", ".xml", ".json", ".md", ".txt", ".yaml", ".yml"}
           files = [
               p for p in pathlib.Path(".").rglob("*")
               if p.suffix in extensions and ".git" not in p.parts
           ]
+
           if not files:
               print("No text files found to scan.")
               pathlib.Path(".scan-result").write_text("PASS")
               sys.exit(0)
+
           combined = ""
           for f in files[:20]:
               try:
                   combined += f"\n\n--- {f} ---\n" + f.read_text(errors="ignore")
               except Exception:
                   pass
+
           response = client.chat.completions.create(
-              model="gpt-4o",           # or "claude-3-5-sonnet" if enabled in your org
+              model="gpt-4o",
               max_tokens=1024,
               messages=[
                   {
@@ -89,12 +94,14 @@ jobs:
                   }
               ]
           )
+
           result = response.choices[0].message.content
           print(result)
           pathlib.Path(".scan-result").write_text(result)
           if result.strip().upper().startswith("FAIL"):
               sys.exit(1)
           EOF
+
       - name: Enforce cached scan result
         if: steps.scan-cache.outputs.cache-hit == 'true'
         run: |
@@ -105,7 +112,8 @@ jobs:
             echo "Cached scan previously FAILED – fix issues before re-pushing."
             exit 1
           fi
-  # ── Job 2: Android build (runs only if scan passes) 
+
+  # ── Job 2: Android build (runs only if scan passes) ──────────────────────
   build-android:
     name: Android Build
     runs-on: ubuntu-latest
@@ -140,6 +148,7 @@ jobs:
           key: gradle-deps-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
           restore-keys: |
             gradle-deps-${{ runner.os }}-
+
       - name: Cache Android build outputs
         uses: actions/cache@v4
         with:
@@ -151,14 +160,14 @@ jobs:
           key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'app/src/**') }}
           restore-keys: |
             android-build-${{ runner.os }}-
-      
-          - name: Debug repo structure
-            run: |
-           pwd
-           ls -la
 
-            - name: Grant Gradle execute permission
-            run: chmod +x gradlew
+      - name: Debug repo structure        # ✅ fixed indentation
+        run: |
+          pwd
+          ls -la
+
+      - name: Grant Gradle execute permission    # ✅ fixed indentation
+        run: chmod +x gradlew
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon --build-cache --parallel
@@ -169,6 +178,3 @@ jobs:
           name: debug-apk
           path: app/build/outputs/apk/debug/*.apk
           retention-days: 7
-
-
-
