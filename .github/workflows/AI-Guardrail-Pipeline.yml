@@ -171,43 +171,35 @@ jobs:
           key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'app/src/**') }}
           restore-keys: |
             android-build-${{ runner.os }}-
-	
 
+      - name: Grant Gradle execute permission
+        run: chmod +x gradlew
+
+      - name: Deliberate failure to test Slack alert
+        run: exit 1
 
       - name: Build debug APK
         id: gradle-build
-        
         run: |
           ./gradlew :app:assembleDebug --no-daemon --build-cache --parallel --stacktrace 2>&1 | tee build.log
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      - name: Report build result
-        run: |
-          if [ "${{ steps.gradle-build.outcome }}" == "success" ]; then
-            echo "✅ BUILD SUCCEEDED"
-          else
-            echo "⚠️ BUILD FAILED - running AI analysis..."
-          fi
- 
-	- name: AI failure analysis + Slack notification
+      - name: AI failure analysis + Slack notification
         if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           pip install openai requests
-
           python - <<'EOF'
           import os, requests
           from openai import OpenAI
 
-          # ── 1. Read build log ────────────────────────────────────────────
           try:
-              log = open("build.log").read()[-6000:]   # last 6000 chars to stay within token limit
+              log = open("build.log").read()[-6000:]
           except FileNotFoundError:
-              log = "Build log not found."
+              log = "Build log not found - pipeline failed before Gradle ran."
 
-          # ── 2. Ask GitHub AI to analyse the failure ──────────────────────
           client = OpenAI(
               base_url="https://models.inference.ai.azure.com",
               api_key=os.environ["GITHUB_TOKEN"],
@@ -221,7 +213,7 @@ jobs:
                       "role": "system",
                       "content": (
                           "You are a senior Android/CI engineer. "
-                          "Analyse the Gradle build failure log and provide: "
+                          "Analyse the build failure and provide: "
                           "1) Root cause in one sentence. "
                           "2) Exact fix with code or commands. "
                           "3) How to prevent it in future. "
@@ -237,12 +229,11 @@ jobs:
 
           analysis = response.choices[0].message.content
 
-          # ── 3. Send to Slack ─────────────────────────────────────────────
-          repo     = os.environ.get("GITHUB_REPOSITORY", "unknown/repo")
-          run_id   = os.environ.get("GITHUB_RUN_ID", "")
-          run_url  = f"https://github.com/{repo}/actions/runs/{run_id}"
-          branch   = os.environ.get("GITHUB_REF_NAME", "unknown")
-          actor    = os.environ.get("GITHUB_ACTOR", "unknown")
+          repo    = os.environ.get("GITHUB_REPOSITORY", "unknown/repo")
+          run_id  = os.environ.get("GITHUB_RUN_ID", "")
+          run_url = f"https://github.com/{repo}/actions/runs/{run_id}"
+          branch  = os.environ.get("GITHUB_REF_NAME", "unknown")
+          actor   = os.environ.get("GITHUB_ACTOR", "unknown")
 
           slack_payload = {
               "blocks": [
@@ -262,9 +253,7 @@ jobs:
                           {"type": "mrkdwn", "text": f"*Run:*\n<{run_url}|View logs>"}
                       ]
                   },
-                  {
-                      "type": "divider"
-                  },
+                  {"type": "divider"},
                   {
                       "type": "section",
                       "text": {
