@@ -188,9 +188,9 @@ jobs:
           else
             echo "⚠️ BUILD FAILED - running AI analysis..."
           fi
-
-      - name: AI failure analysis + Slack notification   # ✅ new step
-        if: steps.gradle-build.outcome == 'failure'
+ 
+	- name: AI failure analysis + Slack notification
+        if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
