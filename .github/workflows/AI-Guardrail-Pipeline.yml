@@ -176,7 +176,7 @@ jobs:
 
       - name: Build debug APK
         id: gradle-build
-        continue-on-error: true
+        
         run: |
           ./gradlew :app:assembleDebug --no-daemon --build-cache --parallel --stacktrace 2>&1 | tee build.log
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
