@@ -8,7 +8,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ── Job 1: Scan source text / code for guardrail violations ──────────────
   scan-text:
     name: AI Guardrail – Text Scan
     runs-on: ubuntu-latest
@@ -113,7 +112,6 @@ jobs:
             exit 1
           fi
 
-  # ── Job 2: Android build (runs only if scan passes) ──────────────────────
   build-android:
     name: Android Build
     runs-on: ubuntu-latest
@@ -131,7 +129,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Set up Android SDK                  # ✅ added
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
 
       - name: Cache Gradle wrapper
@@ -152,7 +150,7 @@ jobs:
           restore-keys: |
             gradle-deps-${{ runner.os }}-
 
-      - name: Cache Android SDK packages          # ✅ added - cache SDK to speed up reruns
+      - name: Cache Android SDK packages
         uses: actions/cache@v4
         with:
           path: |
@@ -174,10 +172,26 @@ jobs:
           restore-keys: |
             android-build-${{ runner.os }}-
 
-      - name: Debug repo structure
-        run: |
-          pwd
-          ls -la
-          echo "ANDROID_HOME=$ANDROID_HOME"
+      - name: Grant Gradle execute permission
+        run: chmod +x gradlew
 
-      - name: Debug – show all Gradle files
+      - name: Build debug APK
+        id: gradle-build
+        continue-on-error: true
+        run: ./gradlew :app:assembleDebug --no-daemon --build-cache --parallel --stacktrace
+
+      - name: Report build result
+        run: |
+          if [ "${{ steps.gradle-build.outcome }}" == "success" ]; then
+            echo "✅ BUILD SUCCEEDED"
+          else
+            echo "⚠️ BUILD FAILED - check logs above for details"
+          fi
+
+      - name: Upload APK artifact
+        if: steps.gradle-build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
