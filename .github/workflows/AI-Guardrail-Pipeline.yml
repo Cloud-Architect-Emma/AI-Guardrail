@@ -118,6 +118,7 @@ jobs:
     needs: scan-text
     permissions:
       contents: read
+      models: read
 
     steps:
       - name: Checkout repository
