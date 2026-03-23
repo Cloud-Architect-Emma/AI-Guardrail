@@ -161,16 +161,33 @@ jobs:
           restore-keys: |
             android-build-${{ runner.os }}-
 
-      - name: Debug repo structure        # ✅ fixed indentation
+      - name: Debug repo structure
         run: |
           pwd
           ls -la
 
-      - name: Grant Gradle execute permission    # ✅ fixed indentation
+      - name: Debug – show all Gradle files   # ✅ moved to build-android job
+        run: |
+          echo "=== settings.gradle ==="
+          cat settings.gradle || echo "MISSING"
+          echo ""
+          echo "=== build.gradle ==="
+          cat build.gradle || echo "MISSING"
+          echo ""
+          echo "=== app/build.gradle ==="
+          cat app/build.gradle || echo "MISSING"
+          echo ""
+          echo "=== Full repo structure ==="
+          find . -not -path './.git/*' -type f | sort
+
+      - name: Debug – available Gradle tasks   # ✅ moved to build-android job
+        run: ./gradlew tasks 2>&1 | head -50
+
+      - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
       - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --build-cache --parallel
+        run: ./gradlew :app:assembleDebug --no-daemon --build-cache --parallel
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
