@@ -1,0 +1,294 @@
+name: AI-Guardrail-Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  scan-text:
+    name: AI Guardrail – Text Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      models: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-openai-v1
+          restore-keys: ${{ runner.os }}-pip-
+
+      - name: Install scanning dependencies
+        run: pip install openai
+
+      - name: Cache scan results
+        id: scan-cache
+        uses: actions/cache@v4
+        with:
+          path: .scan-result
+          key: scan-${{ runner.os }}-${{ hashFiles('**/*.kt', '**/*.java', '**/*.xml', '**/*.json', '**/*.yaml', '**/*.yml', '**/*.md', '**/*.txt') }}
+
+      - name: Run AI guardrail text scan
+        if: steps.scan-cache.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'EOF'
+          import os, sys, pathlib
+          from openai import OpenAI
+
+          client = OpenAI(
+              base_url="https://models.inference.ai.azure.com",
+              api_key=os.environ["GITHUB_TOKEN"],
+          )
+
+          extensions = {".kt", ".java", ".xml", ".json", ".md", ".txt", ".yaml", ".yml"}
+          files = [
+              p for p in pathlib.Path(".").rglob("*")
+              if p.suffix in extensions and ".git" not in p.parts
+          ]
+
+          if not files:
+              print("No text files found to scan.")
+              pathlib.Path(".scan-result").write_text("PASS")
+              sys.exit(0)
+
+          combined = ""
+          for f in files[:20]:
+              try:
+                  combined += f"\n\n--- {f} ---\n" + f.read_text(errors="ignore")
+              except Exception:
+                  pass
+
+          response = client.chat.completions.create(
+              model="gpt-4o",
+              max_tokens=1024,
+              messages=[
+                  {
+                      "role": "system",
+                      "content": (
+                          "You are a mobile-app code reviewer. "
+                          "Scan source files for: hardcoded secrets or API keys, "
+                          "insecure permissions, sensitive PII in logs, and policy violations. "
+                          "Reply with PASS if nothing critical is found, or FAIL followed by a "
+                          "short bullet list of issues. No other commentary."
+                      )
+                  },
+                  {
+                      "role": "user",
+                      "content": combined
+                  }
+              ]
+          )
+
+          result = response.choices[0].message.content
+          print(result)
+          pathlib.Path(".scan-result").write_text(result)
+          if result.strip().upper().startswith("FAIL"):
+              sys.exit(1)
+          EOF
+
+      - name: Enforce cached scan result
+        if: steps.scan-cache.outputs.cache-hit == 'true'
+        run: |
+          result=$(cat .scan-result)
+          echo "Using cached scan result:"
+          echo "$result"
+          if echo "$result" | grep -iq "^FAIL"; then
+            echo "Cached scan previously FAILED – fix issues before re-pushing."
+            exit 1
+          fi
+
+  build-android:
+    name: Android Build
+    runs-on: ubuntu-latest
+    needs: scan-text
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ hashFiles('**/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/caches/modules-*
+            ~/.gradle/caches/jars-*
+          key: gradle-deps-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', '**/gradle-wrapper.properties', '**/libs.versions.toml') }}
+          restore-keys: |
+            gradle-deps-${{ runner.os }}-
+
+      - name: Cache Android SDK packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_HOME }}/platforms
+            ${{ env.ANDROID_HOME }}/build-tools
+            ${{ env.ANDROID_HOME }}/platform-tools
+          key: android-sdk-34-${{ runner.os }}
+          restore-keys: android-sdk-
+
+      - name: Cache Android build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/build/intermediates
+            app/build/tmp
+            build/intermediates
+            build/tmp
+          key: android-build-${{ runner.os }}-${{ hashFiles('**/*.gradle', '**/*.gradle.kts', 'app/src/**') }}
+          restore-keys: |
+            android-build-${{ runner.os }}-
+
+      - name: Grant Gradle execute permission
+        run: chmod +x gradlew
+
+      - name: Build debug APK
+        id: gradle-build
+        continue-on-error: true
+        run: |
+          ./gradlew :app:assembleDebug --no-daemon --build-cache --parallel --stacktrace 2>&1 | tee build.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Report build result
+        run: |
+          if [ "${{ steps.gradle-build.outcome }}" == "success" ]; then
+            echo "✅ BUILD SUCCEEDED"
+          else
+            echo "⚠️ BUILD FAILED - running AI analysis..."
+          fi
+
+      - name: AI failure analysis + Slack notification   # ✅ new step
+        if: steps.gradle-build.outcome == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          pip install openai requests
+
+          python - <<'EOF'
+          import os, requests
+          from openai import OpenAI
+
+          # ── 1. Read build log ────────────────────────────────────────────
+          try:
+              log = open("build.log").read()[-6000:]   # last 6000 chars to stay within token limit
+          except FileNotFoundError:
+              log = "Build log not found."
+
+          # ── 2. Ask GitHub AI to analyse the failure ──────────────────────
+          client = OpenAI(
+              base_url="https://models.inference.ai.azure.com",
+              api_key=os.environ["GITHUB_TOKEN"],
+          )
+
+          response = client.chat.completions.create(
+              model="gpt-4o",
+              max_tokens=1024,
+              messages=[
+                  {
+                      "role": "system",
+                      "content": (
+                          "You are a senior Android/CI engineer. "
+                          "Analyse the Gradle build failure log and provide: "
+                          "1) Root cause in one sentence. "
+                          "2) Exact fix with code or commands. "
+                          "3) How to prevent it in future. "
+                          "Be concise and actionable. Use plain text, no markdown."
+                      )
+                  },
+                  {
+                      "role": "user",
+                      "content": f"Build failure log:\n\n{log}"
+                  }
+              ]
+          )
+
+          analysis = response.choices[0].message.content
+
+          # ── 3. Send to Slack ─────────────────────────────────────────────
+          repo     = os.environ.get("GITHUB_REPOSITORY", "unknown/repo")
+          run_id   = os.environ.get("GITHUB_RUN_ID", "")
+          run_url  = f"https://github.com/{repo}/actions/runs/{run_id}"
+          branch   = os.environ.get("GITHUB_REF_NAME", "unknown")
+          actor    = os.environ.get("GITHUB_ACTOR", "unknown")
+
+          slack_payload = {
+              "blocks": [
+                  {
+                      "type": "header",
+                      "text": {
+                          "type": "plain_text",
+                          "text": "🚨 Android Build Failed – AI Incident Report"
+                      }
+                  },
+                  {
+                      "type": "section",
+                      "fields": [
+                          {"type": "mrkdwn", "text": f"*Repo:*\n{repo}"},
+                          {"type": "mrkdwn", "text": f"*Branch:*\n{branch}"},
+                          {"type": "mrkdwn", "text": f"*Triggered by:*\n{actor}"},
+                          {"type": "mrkdwn", "text": f"*Run:*\n<{run_url}|View logs>"}
+                      ]
+                  },
+                  {
+                      "type": "divider"
+                  },
+                  {
+                      "type": "section",
+                      "text": {
+                          "type": "mrkdwn",
+                          "text": f"*🤖 AI Analysis & Fix:*\n```{analysis[:2900]}```"
+                      }
+                  }
+              ]
+          }
+
+          webhook = os.environ["SLACK_WEBHOOK_URL"]
+          r = requests.post(webhook, json=slack_payload)
+          print(f"Slack response: {r.status_code} {r.text}")
+          if r.status_code != 200:
+              print("Warning: Slack notification failed")
+          else:
+              print("✅ Slack incident report sent")
+          EOF
+
+      - name: Upload APK artifact
+        if: steps.gradle-build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          retention-days: 7
