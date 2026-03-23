@@ -176,8 +176,7 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Deliberate failure to test Slack alert
-        run: exit 1
+      
 
       - name: Build debug APK
         id: gradle-build
