@@ -172,11 +172,7 @@ jobs:
           restore-keys: |
             android-build-${{ runner.os }}-
 	
-	- name: Deliberate failure to test AI incident report
-        run: exit 1
 
-      - name: Grant Gradle execute permission
-        run: chmod +x gradlew
 
       - name: Build debug APK
         id: gradle-build
