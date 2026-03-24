@@ -4,12 +4,8 @@ A GitHub Actions CI/CD pipeline for Android that uses GitHub's AI models to scan
 
 ---
 
-##  Architecture ![Architecture](architecture/architecture-diagram.gif).
+##  Architecture ![Architecture](architecture/architecture-diagram-(1).gif).
 ```
-
-
-
----
 
 ##  Features
 
