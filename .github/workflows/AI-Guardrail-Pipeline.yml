@@ -50,7 +50,6 @@ jobs:
           import os, sys, pathlib
           from openai import OpenAI
 
-
           client = OpenAI(
               base_url="https://models.inference.ai.azure.com",
               api_key=os.environ["GITHUB_TOKEN"],
@@ -112,6 +111,15 @@ jobs:
             echo "Cached scan previously FAILED – fix issues before re-pushing."
             exit 1
           fi
+
+      - name: Slack notification on scan failure   # ✅ catches scan-text failures
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data "{\"text\":\"🚨 *AI Scan Failed* — security violation detected in \`$GITHUB_REPOSITORY\` on branch \`$GITHUB_REF_NAME\` by $GITHUB_ACTOR — <https://github.com/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID|View Run>\"}" \
+          "$SLACK_WEBHOOK_URL"
 
   build-android:
     name: Android Build
@@ -177,8 +185,8 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      -name: AI PII Scan test
-	   run: AZS1234567ghh
+      - name: Deliberate failure test        # ✅ properly formatted test step
+        run: exit 1
 
       - name: Build debug APK
         id: gradle-build
@@ -186,7 +194,7 @@ jobs:
           ./gradlew :app:assembleDebug --no-daemon --build-cache --parallel --stacktrace 2>&1 | tee build.log
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      - name: AI failure analysis + Slack notification
+      - name: AI failure analysis + Slack notification   # ✅ catches ALL build failures
         if: failure()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
