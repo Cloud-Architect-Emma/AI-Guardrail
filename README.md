@@ -4,29 +4,10 @@ A GitHub Actions CI/CD pipeline for Android that uses GitHub's AI models to scan
 
 ---
 
-##  Architecture
+##  Architecture ![Architecture](architecture/architecture-diagram.gif).
 ```
-Push to main
-     │
-     ▼
-┌─────────────────────┐
-│   Job 1: AI Scan    │  ← Scans source code for secrets, PII, policy violations
-│   (scan-text)       │    using GitHub Models (GPT-4o)
-└────────┬────────────┘
-         │ PASS
-         ▼
-┌─────────────────────┐
-│ Job 2: Android Build│  ← Builds debug APK using Gradle
-│  (build-android)    │
-└────────┬────────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
- SUCCESS    FAILURE
-    │         │
-    ▼         ▼
-Upload APK   AI Incident Report → Slack
-```
+
+
 
 ---
 
