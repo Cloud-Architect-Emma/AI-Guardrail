@@ -50,6 +50,9 @@ jobs:
           import os, sys, pathlib
           from openai import OpenAI
 
+	-name: AI PII Scan test
+	   run: AZS1234567ghh
+
           client = OpenAI(
               base_url="https://models.inference.ai.azure.com",
               api_key=os.environ["GITHUB_TOKEN"],
