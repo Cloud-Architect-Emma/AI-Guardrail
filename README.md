@@ -7,7 +7,7 @@
 
 A **GitHub Actions CI/CD pipeline for Android** that integrates GitHub’s AI models to scan source code for security violations **before building**, and automatically sends **AI-powered incident reports to Slack** when builds fail.  
 
----
+
 
 ## Architecture
 
@@ -34,7 +34,8 @@ GitHub Actions Pipeline
                │
                ▼
             Slack Alert
-Features
+```
+## Features
 AI Security Guardrails
 
 Automatically scans up to 20 source files before every build to detect:
@@ -68,7 +69,8 @@ root cause in one sentence
 exact fix with commands
 prevention strategy
 link to the failed workflow
-Setup
+
+## Setup
 1. Clone the repository
 git clone https://github.com/Cloud-Architect-Emma/AI-Guardrail.git
 cd AI-Guardrail
@@ -87,12 +89,13 @@ Create New App → From scratch
 Enable Incoming Webhooks
 Add New Webhook to Workspace → pick your channel
 Copy the webhook URL and add it as SLACK_WEBHOOK_URL secret
+
 4. Push to main
 git push origin main
 
 The pipeline triggers automatically on every push and pull request to main.
 
-Project Structure
+## Project Structure
 AI-Guardrail/
 ├── .github/
 │   └── workflows/
@@ -116,7 +119,7 @@ AI-Guardrail/
 ├── gradlew.bat
 └── README.md
 
-Pipeline Jobs
+## Pipeline Jobs
 1. scan-text
 Step	Description
 Checkout	Clones the repository
@@ -142,6 +145,7 @@ Upload APK	Uploads APK as workflow artifact
 Slack Incident Report Example
 Android Build Failed — AI Incident Report
 
+```
 Repository: Cloud-Architect-Emma/AI-Guardrail
 Branch: main
 Triggered by: Cloud-Architect-Emma
@@ -189,9 +193,13 @@ JDK 17
 Gradle 9.4.1
 Python 3.11 (CI only)
 Slack workspace with incoming webhooks enabled
+```
+
+---
 Author
 
 Emmanuela Opurum
 Solutions Architect | Cloud Engineer
+---
 
 GitHub: @Cloud-Architect-Emma
