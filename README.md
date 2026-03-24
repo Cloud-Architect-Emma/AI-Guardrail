@@ -241,4 +241,4 @@ Validate Gradle module configuration before pushing changes.
 Solutions Architect | Cloud Engineer
 
 [![GitHub](https://img.shields.io/badge/GitHub-Cloud--Architect--Emma-181717?logo=github)](https://github.com/Cloud-Architect-Emma)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin)](https://linkedin.com/in/https://www.linkedin.com/in/cloud-architect-emma/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0A66C2?logo=linkedin)](https://www.linkedin.com/in/cloud-architect-emma/)
