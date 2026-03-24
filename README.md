@@ -11,7 +11,7 @@ A **GitHub Actions CI/CD pipeline for Android** that integrates GitHub’s AI mo
 
 ## Architecture
 
-![AI Guardrail Pipeline Architecture](architecture/architecture-diagram.gif)
+![AI Guardrail Pipeline Architecture](architecture/architecture-diagram-(1).gif)
 
 **Pipeline Overview:**
 
