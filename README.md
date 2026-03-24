@@ -15,7 +15,7 @@ A **GitHub Actions CI/CD pipeline for Android** that integrates GitHub’s AI mo
 
 **Pipeline Overview:**
 
-```text
+
 Developer Push
       │
       ▼
