@@ -185,8 +185,7 @@ jobs:
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Deliberate failure test        # ✅ properly formatted test step
-        run: exit 1
+     
 
       - name: Build debug APK
         id: gradle-build
