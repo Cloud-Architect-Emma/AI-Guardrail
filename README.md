@@ -46,9 +46,9 @@ GitHub Actions CI/CD Pipeline
                     │
                     ▼
           Slack Incident Notification
+```
 
-
-Security Objectives
+## Security Objectives
 
 This system is designed to detect and prevent:
 
@@ -58,6 +58,7 @@ Injection-prone input handling
 Sensitive data leakage in logs (PII exposure)
 Policy violations defined in /policies
 Pipeline Design
+
 1. AI Security Scan Stage
 
 Each pull request triggers an LLM-based analysis of up to 20 source files.
@@ -67,6 +68,7 @@ Outputs include:
 Risk classification (Low / Medium / High)
 Policy violation detection
 Deployment decision (PASS / BLOCK)
+
 2. Policy Enforcement Layer
 
 A deterministic policy engine enforces security rules defined in /policies and overrides ambiguous AI outputs.
@@ -79,7 +81,7 @@ A Gradle-based build system compiles a debug APK using cached dependencies for p
 
 On build failure, GPT-4o analyzes logs and produces structured incident reports containing:
 
-Root cause summary
+## Root cause summary
 Exact remediation steps
 Prevention guidance
 Link to CI execution logs
@@ -99,7 +101,7 @@ Vulnerable code can be misclassified as safe under naive prompting
 Traditional SAST tools do not detect prompt injection risk
 Hardening Strategy
 
-To mitigate adversarial manipulation, the system implements:
+## To mitigate adversarial manipulation, the system implements:
 
 Input sanitisation (removal/isolation of untrusted comment-based instructions)
 Structured prompting with enforced schema outputs
@@ -111,7 +113,8 @@ Prompt injection attempts no longer influence classification
 Secrets are consistently detected across test cases
 Policy violations are enforced deterministically
 Deployment safety is preserved under adversarial conditions
-Key Contributions
+
+## Key Contributions
 Integration of LLMs into CI/CD security pipelines
 Adversarial evaluation of prompt injection risks in DevSecOps systems
 Hybrid enforcement architecture combining deterministic and probabilistic controls
@@ -119,7 +122,7 @@ Hardened CI/CD guardrail design for production environments
 Demonstration of LLM limitations in security-critical workflows
 Threat Model
 
-The system evaluates the following threat categories:
+## The system evaluates the following threat categories:
 
 Hardcoded secret exposure (API keys, tokens)
 Prompt injection via code comments or commit messages
@@ -127,7 +130,7 @@ Insecure API usage patterns
 CI/CD misconfiguration vulnerabilities
 Sensitive information leakage in logs
 
-Out of scope:
+## Out of scope:
 
 Runtime exploitation after deployment
 Network-layer or infrastructure attacks
@@ -150,7 +153,7 @@ Android SDK caching	Faster environment setup
 Baseline CI time: ~9 minutes
 Optimised CI time: ~3.5 minutes (~60% improvement)
 
-Security Model
+## Security Model
 No secrets are hardcoded in repository
 All credentials stored in GitHub Secrets
 CI/CD operates with least privilege access
